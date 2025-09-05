@@ -1,0 +1,18 @@
+# Metisara Configuration File
+# Configuration for JIRA ticket creation and project management
+
+[jira]
+# Your JIRA instance URL
+url = https://your-jira-instance.com/
+
+# Your JIRA username/email
+username = user@example.com
+
+[files]
+# Input CSV file with processed project tickets
+csv_file_input = Metisara Template - Import.csv
+csv_file_output = project-tickets-processed.csv
+
+[project]
+# Default project key for JIRA tickets
+default_project = PROJ

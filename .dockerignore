@@ -1,0 +1,58 @@
+# Docker ignore file - exclude unnecessary files from build context
+
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Metisara specific
+workspace/
+*.log
+*.zip
+
+# Environment files (will be copied from examples)
+.env
+metisara.conf
+
+# Documentation build
+docs/_build/
+
+# CI/CD
+.github/
+
+# Development
+*.tmp
+*.bak
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore

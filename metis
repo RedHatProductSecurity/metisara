@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""
+Main entry point for Metisara CLI.
+"""
+
+import sys
+from pathlib import Path
+
+# Add src directory to Python path
+script_dir = Path(__file__).parent.resolve()
+src_path = script_dir / "src"
+sys.path.insert(0, str(src_path))
+
+try:
+    from metisara.cli import main
+except ImportError as e:
+    print(f"Error importing metisara modules: {e}")
+    print(f"Script directory: {script_dir}")
+    print(f"Source path: {src_path}")
+    print(f"Python path: {sys.path}")
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()
