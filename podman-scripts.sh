@@ -74,17 +74,19 @@ start_containers_macos() {
     podman volume create metisara-workspace-alpine 2>/dev/null || true
     podman volume create metisara-workspace-test 2>/dev/null || true
     
-    # SELinux context flag for volume mounting
-    local volume_flag=""
+    # Volume mounting options for different platforms
+    local host_volume_opts="ro"
+    local named_volume_opts=""
     if [[ "$IS_MACOS" == "true" ]]; then
-        volume_flag=":Z"
+        host_volume_opts="ro,Z"
+        named_volume_opts="Z"
     fi
     
     # Start Fedora container
     echo "Starting Fedora container..."
     podman run -d --name metisara-fedora \
-        -v "$SCRIPT_DIR:/home/testuser/metisara-dev:ro${volume_flag}" \
-        -v metisara-workspace-fedora:/home/testuser/metisara/workspace${volume_flag} \
+        -v "$SCRIPT_DIR:/home/testuser/metisara-dev:${host_volume_opts}" \
+        -v metisara-workspace-fedora:/home/testuser/metisara/workspace:${named_volume_opts} \
         -e METISARA_ENV=development \
         -e PYTHONPATH=/home/testuser/metisara/src \
         -w /home/testuser/metisara \
@@ -95,8 +97,8 @@ start_containers_macos() {
     # Start Alpine container
     echo "Starting Alpine container..."
     podman run -d --name metisara-alpine \
-        -v "$SCRIPT_DIR:/home/testuser/metisara-dev:ro${volume_flag}" \
-        -v metisara-workspace-alpine:/home/testuser/metisara/workspace${volume_flag} \
+        -v "$SCRIPT_DIR:/home/testuser/metisara-dev:${host_volume_opts}" \
+        -v metisara-workspace-alpine:/home/testuser/metisara/workspace:${named_volume_opts} \
         -e METISARA_ENV=development \
         -e PYTHONPATH=/home/testuser/metisara/src \
         -w /home/testuser/metisara \
@@ -107,9 +109,9 @@ start_containers_macos() {
     # Start test container
     echo "Starting test container..."
     podman run -d --name metisara-test \
-        -v "$SCRIPT_DIR:/home/testuser/metisara-dev:ro${volume_flag}" \
-        -v metisara-workspace-test:/home/testuser/metisara/workspace${volume_flag} \
-        -v "$SCRIPT_DIR/tests/fixtures:/home/testuser/metisara/test-data:ro${volume_flag}" \
+        -v "$SCRIPT_DIR:/home/testuser/metisara-dev:${host_volume_opts}" \
+        -v metisara-workspace-test:/home/testuser/metisara/workspace:${named_volume_opts} \
+        -v "$SCRIPT_DIR/tests/fixtures:/home/testuser/metisara/test-data:${host_volume_opts}" \
         -e METISARA_ENV=testing \
         -e PYTHONPATH=/home/testuser/metisara/src \
         -e JIRA_API_TOKEN=test-token-for-dry-run \

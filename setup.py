@@ -10,10 +10,14 @@ from pathlib import Path
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text(encoding='utf-8')
 
-# Read version from package
-version = {}
-with open("src/metisara/__init__.py") as fp:
-    exec(fp.read(), version)
+# Read version from package (safer approach)
+import re
+version_file = (this_directory / "src" / "metisara" / "__init__.py").read_text(encoding='utf-8')
+version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
+if version_match:
+    version = {'__version__': version_match.group(1)}
+else:
+    raise RuntimeError("Unable to find version string.")
 
 setup(
     name="metisara",
