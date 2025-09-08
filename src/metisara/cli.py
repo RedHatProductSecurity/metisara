@@ -338,7 +338,7 @@ Configuration:
     # Step 2: Process CSV (generate config or process placeholders)
     if args.generate_config:
         print(f"\n⚙️  Step 2: Generating configuration from {csv_input}...")
-        process_cmd = ['python3', str(Path(__file__).parent / 'processors' / 'csv_processor.py'), '--generate-config']
+        process_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py'), '--generate-config']
         if args.skip_auto_move:
             process_cmd.append('--skip-auto-move')
         
@@ -353,7 +353,7 @@ Configuration:
     else:
         # Always generate fresh csv_replacements.json from current CSV template
         print(f"\n⚙️  Step 2a: Generating fresh configuration from {csv_input}...")
-        generate_cmd = ['python3', str(Path(__file__).parent / 'processors' / 'csv_processor.py'), '--generate-config']
+        generate_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py'), '--generate-config']
         if args.skip_auto_move:
             generate_cmd.append('--skip-auto-move')
         
@@ -365,7 +365,7 @@ Configuration:
         print("✅ Configuration generated successfully!")
         
         print(f"\n🔄 Step 2b: Processing placeholders in {csv_input}...")
-        process_cmd = ['python3', str(Path(__file__).parent / 'processors' / 'csv_processor.py')]
+        process_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py')]
         if args.skip_auto_move:
             process_cmd.append('--skip-auto-move')
         
@@ -378,7 +378,7 @@ Configuration:
     print(f"\n🎫 Step 3: Creating JIRA tickets from {csv_output}...")
     
     # Build create tickets command
-    create_cmd = ['python3', str(Path(__file__).parent / 'jira' / 'ticket_creator.py')]
+    create_cmd = [sys.executable, str(Path(__file__).parent / 'jira' / 'ticket_creator.py')]
     
     if args.dry_run:
         create_cmd.append('--dry-run')

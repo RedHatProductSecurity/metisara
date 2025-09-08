@@ -487,7 +487,7 @@ def main():
                 print("Step 1: Moving CSV file from Downloads...")
                 
                 try:
-                    result = subprocess.run(['python3', 'auto_move_csv.py'], 
+                    result = subprocess.run([sys.executable, 'auto_move_csv.py'], 
                                           capture_output=True, text=True, check=True)
                     print(result.stdout)
                 except subprocess.CalledProcessError as e:
@@ -556,7 +556,7 @@ def main():
             print("Step 1: Moving CSV file from Downloads...")
             
             try:
-                result = subprocess.run(['python3', 'auto_move_csv.py'], 
+                result = subprocess.run([sys.executable, 'auto_move_csv.py'], 
                                       capture_output=True, text=True, check=True)
                 print(result.stdout)
             except subprocess.CalledProcessError as e:
