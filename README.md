@@ -23,7 +23,6 @@ Metisara is an automated JIRA project management workflow tool that streamlines 
 ```bash
 git clone https://github.com/your-org/metisara.git
 cd metisara
-chmod +x metis
 ```
 
 **Platform-specific setup:**
