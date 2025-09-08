@@ -1,0 +1,127 @@
+# Podman pod configuration for Metisara
+# Run with: podman play kube podman-pod.yml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: metisara-pod
+  labels:
+    app: metisara
+spec:
+  containers:
+  # Fedora test environment
+  - name: metisara-fedora
+    image: localhost/metisara-fedora:latest
+    stdin: true
+    tty: true
+    workingDir: /home/testuser/metisara
+    command: ["/bin/bash"]
+    env:
+    - name: METISARA_ENV
+      value: development
+    - name: PYTHONPATH
+      value: /home/testuser/metisara/src
+    volumeMounts:
+    - name: metisara-dev
+      mountPath: /home/testuser/metisara-dev
+      readOnly: true
+    - name: metisara-workspace-fedora
+      mountPath: /home/testuser/metisara/workspace
+  
+  # Alpine test environment (lightweight)
+  - name: metisara-alpine
+    image: localhost/metisara-alpine:latest
+    stdin: true
+    tty: true
+    workingDir: /home/testuser/metisara
+    command: ["/bin/bash"]
+    env:
+    - name: METISARA_ENV
+      value: development
+    - name: PYTHONPATH
+      value: /home/testuser/metisara/src
+    volumeMounts:
+    - name: metisara-dev
+      mountPath: /home/testuser/metisara-dev
+      readOnly: true
+    - name: metisara-workspace-alpine
+      mountPath: /home/testuser/metisara/workspace
+
+  # Test environment with sample data
+  - name: metisara-test
+    image: localhost/metisara-test:latest
+    stdin: true
+    tty: true
+    workingDir: /home/testuser/metisara
+    command: ["/bin/bash", "-c", "source venv/bin/activate && echo 'Running test setup...' && make setup && echo 'Test environment ready!' && /bin/bash"]
+    env:
+    - name: METISARA_ENV
+      value: testing
+    - name: PYTHONPATH
+      value: /home/testuser/metisara/src
+    - name: JIRA_API_TOKEN
+      value: test-token-for-dry-run
+    volumeMounts:
+    - name: metisara-dev
+      mountPath: /home/testuser/metisara-dev
+      readOnly: true
+    - name: metisara-workspace-test
+      mountPath: /home/testuser/metisara/workspace
+    - name: test-fixtures
+      mountPath: /home/testuser/metisara/test-data
+      readOnly: true
+
+  volumes:
+  - name: metisara-dev
+    hostPath:
+      path: .
+      type: Directory
+  - name: metisara-workspace-fedora
+    persistentVolumeClaim:
+      claimName: metisara-workspace-fedora
+  - name: metisara-workspace-alpine
+    persistentVolumeClaim:
+      claimName: metisara-workspace-alpine
+  - name: metisara-workspace-test
+    persistentVolumeClaim:
+      claimName: metisara-workspace-test
+  - name: test-fixtures
+    hostPath:
+      path: ./tests/fixtures
+      type: Directory
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metisara-workspace-fedora
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metisara-workspace-alpine
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metisara-workspace-test
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

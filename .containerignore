@@ -1,4 +1,4 @@
-# Docker ignore file - exclude unnecessary files from build context
+# Container ignore file - exclude unnecessary files from build context
 
 # Git
 .git/
@@ -52,7 +52,6 @@ docs/_build/
 *.tmp
 *.bak
 
-# Docker
-Dockerfile
+# Container files
 docker-compose.yml
 .dockerignore

@@ -4,7 +4,7 @@ This document describes how to test Metisara in containerized environments that 
 
 ## Container Testing Overview
 
-We provide Docker containers to test Metisara installation and functionality from scratch:
+We provide Podman containers to test Metisara installation and functionality from scratch:
 
 - **Fedora Container**: Primary testing environment matching our main target platform
 - **Alpine Container**: Lightweight testing environment for minimal installations
@@ -14,17 +14,20 @@ We provide Docker containers to test Metisara installation and functionality fro
 
 ### Prerequisites
 
-- Docker installed on your system
-- Docker Compose (optional, but recommended)
+- Podman installed on your system
+- Podman Compose (optional) or use our custom scripts
 
-### Option 1: Docker Compose (Recommended)
+### Option 1: Podman Scripts (Recommended)
 
 ```bash
-# Build and start Fedora test environment
-docker-compose up -d metisara-fedora
+# Build all test environments
+./podman-scripts.sh build
 
-# Enter the container
-docker-compose exec metisara-fedora /bin/bash
+# Start the pod with all containers
+./podman-scripts.sh start
+
+# Enter the Fedora container
+./podman-scripts.sh exec metisara-fedora
 
 # Inside container - test basic functionality
 source venv/bin/activate
@@ -33,14 +36,14 @@ source venv/bin/activate
 ./metis --dry-run
 ```
 
-### Option 2: Direct Docker Build
+### Option 2: Direct Podman Build
 
 ```bash
 # Build Fedora test image
-docker build -t metisara-test --build-arg BASE_IMAGE=fedora:latest .
+podman build -t metisara-test --build-arg BASE_IMAGE=fedora:latest -f Containerfile .
 
 # Run interactive container
-docker run -it metisara-test /bin/bash
+podman run -it metisara-test /bin/bash
 
 # Inside container - test functionality
 source venv/bin/activate
@@ -53,8 +56,8 @@ source venv/bin/activate
 
 ```bash
 # Start Fedora test environment
-docker-compose up -d metisara-fedora
-docker-compose exec metisara-fedora /bin/bash
+./podman-scripts.sh start
+./podman-scripts.sh exec metisara-fedora
 
 # Test installation
 source venv/bin/activate
@@ -67,9 +70,9 @@ source venv/bin/activate
 ### 2. Alpine Environment (Lightweight)
 
 ```bash
-# Start Alpine test environment  
-docker-compose up -d metisara-alpine
-docker-compose exec metisara-alpine /bin/bash
+# Start Alpine test environment
+./podman-scripts.sh start
+./podman-scripts.sh exec metisara-alpine
 
 # Test installation
 source venv/bin/activate
@@ -82,8 +85,8 @@ source venv/bin/activate
 
 ```bash
 # Start test environment with sample data
-docker-compose up -d metisara-test
-docker-compose exec metisara-test /bin/bash
+./podman-scripts.sh start
+./podman-scripts.sh exec metisara-test
 
 # Environment comes pre-configured
 ./metis --dry-run
@@ -166,33 +169,30 @@ make type-check
 
 ```bash
 # Rebuild all containers
-docker-compose build
+./podman-scripts.sh build
 
-# Rebuild specific container
-docker-compose build metisara-fedora
+# Rebuild specific container (use build script and specify base image)
+podman build -t localhost/metisara-fedora:latest --build-arg BASE_IMAGE=fedora:latest -f Containerfile .
 ```
 
 ### Clean Up
 
 ```bash
-# Stop and remove containers
-docker-compose down
+# Stop and remove pod
+./podman-scripts.sh stop
 
-# Remove volumes (resets workspaces)
-docker-compose down -v
-
-# Remove images
-docker-compose down --rmi all
+# Clean up everything (containers, images, volumes)
+./podman-scripts.sh cleanup
 ```
 
 ### View Logs
 
 ```bash
 # View container logs
-docker-compose logs metisara-fedora
+./podman-scripts.sh logs metisara-fedora
 
-# Follow logs
-docker-compose logs -f metisara-test
+# Follow logs with podman directly
+podman logs -f metisara-pod-metisara-test
 ```
 
 ## Test Data
@@ -201,10 +201,10 @@ docker-compose logs -f metisara-test
 
 ```bash
 # Copy test files to container
-docker cp your-test-file.csv metisara-fedora-test:/home/testuser/metisara/workspace/input/
+podman cp your-test-file.csv metisara-pod-metisara-fedora:/home/testuser/metisara/workspace/input/
 
-# Or mount a directory with docker-compose
-# (see docker-compose.yml volumes section)
+# Or mount a directory with the pod configuration
+# (see podman-pod.yml volumes section)
 ```
 
 ### Sample Test Configuration
@@ -280,8 +280,8 @@ The same containers can be used in CI/CD pipelines:
 # Example GitHub Actions usage
 - name: Test in Fedora container
   run: |
-    docker build -t metisara-ci --build-arg BASE_IMAGE=fedora:latest .
-    docker run --rm metisara-ci ./metis --version
+    podman build -t metisara-ci --build-arg BASE_IMAGE=fedora:latest -f Containerfile .
+    podman run --rm metisara-ci ./metis --version
 ```
 
 ## Performance Testing

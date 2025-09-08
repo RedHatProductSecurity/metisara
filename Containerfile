@@ -1,4 +1,4 @@
-# Dockerfile for testing Metisara installation from scratch
+# Containerfile for testing Metisara installation from scratch
 # Supports both Fedora and Alpine Linux (lightweight) testing
 
 ARG BASE_IMAGE=fedora:latest
@@ -57,4 +57,4 @@ RUN cp examples/metisara.conf.example metisara.conf && \
 ENV METISARA_CONTAINER=1
 
 # Default command shows help and status
-CMD ["/bin/bash", "-c", "source venv/bin/activate && echo '=== Metisara Container Test Environment ===' && echo 'Python version:' && python --version && echo 'Metisara installation:' && ./metis --version && echo 'Available commands:' && ./metis --help && echo 'Configuration files:' && ls -la *.conf *.env* && echo 'Ready for testing! Use: docker run -it <image> /bin/bash'"]
+CMD ["/bin/bash", "-c", "source venv/bin/activate && echo '=== Metisara Container Test Environment ===' && echo 'Python version:' && python --version && echo 'Metisara installation:' && ./metis --version && echo 'Available commands:' && ./metis --help && echo 'Configuration files:' && ls -la *.conf *.env* && echo 'Ready for testing! Use: podman run -it <image> /bin/bash'"]

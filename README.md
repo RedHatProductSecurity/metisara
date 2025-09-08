@@ -261,8 +261,9 @@ For testing Metisara in clean environments (simulating fresh installations):
 
 ```bash
 # Quick test in Fedora container
-docker-compose up -d metisara-fedora
-docker-compose exec metisara-fedora /bin/bash
+./podman-scripts.sh build
+./podman-scripts.sh start
+./podman-scripts.sh exec metisara-fedora
 
 # Inside container
 source venv/bin/activate

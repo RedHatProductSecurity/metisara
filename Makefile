@@ -18,6 +18,9 @@ help:
 	@echo "  build        - Build package"
 	@echo "  check-all    - Run all checks (lint, format, type, test)"
 	@echo "  setup        - Initial setup for development"
+	@echo "  podman-test  - Run tests in Podman container"
+	@echo "  podman-shell - Open shell in Podman container"
+	@echo "  podman-clean - Clean up Podman containers and images"
 
 # Installation
 install:
@@ -102,14 +105,14 @@ test-config:
 	./metis --generate-config
 
 # Container testing
-docker-test:
-	docker-compose build metisara-fedora
-	docker-compose run --rm metisara-fedora /bin/bash -c "source venv/bin/activate && ./metis --version && ./metis --dry-run"
+podman-test:
+	./podman-scripts.sh build
+	./podman-scripts.sh start
+	podman exec metisara-pod-metisara-fedora /bin/bash -c "source venv/bin/activate && ./metis --version && ./metis --dry-run"
 
-docker-shell:
-	docker-compose up -d metisara-fedora
-	docker-compose exec metisara-fedora /bin/bash
+podman-shell:
+	./podman-scripts.sh start
+	./podman-scripts.sh exec metisara-fedora
 
-docker-clean:
-	docker-compose down -v
-	docker-compose build --no-cache
+podman-clean:
+	./podman-scripts.sh cleanup
