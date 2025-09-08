@@ -505,6 +505,34 @@ def main():
         metisara_config = configparser.ConfigParser()
         metisara_config.read('metisara.conf')
         input_file = metisara_config.get('files', 'csv_file_input', fallback='Metisara Template - Import.csv')
+        
+        # Search for CSV file in multiple locations when skip_auto_move is used
+        if skip_auto_move:
+            csv_path = Path(input_file)
+            possible_paths = [
+                csv_path,  # Direct path as specified in config
+                Path("workspace/input") / input_file,  # In workspace/input directory
+                Path("workspace/input") / csv_path.name,  # Just filename in workspace/input
+            ]
+            
+            file_found = False
+            actual_path = None
+            for path in possible_paths:
+                if path.exists():
+                    file_found = True
+                    actual_path = path
+                    break
+            
+            if not file_found:
+                print(f"Error: CSV file {input_file} not found in any of these locations:")
+                for path in possible_paths:
+                    print(f"   - {path}")
+                print("💡 Try placing the file in workspace/input/ directory")
+                sys.exit(1)
+            else:
+                input_file = str(actual_path)
+                print(f"Found CSV file at: {input_file}")
+        
         config = extract_config_from_csv(input_file)
         
         print("\nExtracted configuration:")
@@ -580,6 +608,33 @@ def main():
     metisara_config.read('metisara.conf')
     input_file = metisara_config.get('files', 'csv_file_input', fallback='workspace/input/Metisara Template - Import.csv')
     output_file = metisara_config.get('files', 'csv_file_output', fallback='workspace/output/project-tickets-processed.csv')
+    
+    # Search for CSV file in multiple locations when skip_auto_move is used
+    if skip_auto_move:
+        csv_path = Path(input_file)
+        possible_paths = [
+            csv_path,  # Direct path as specified in config
+            Path("workspace/input") / input_file,  # In workspace/input directory
+            Path("workspace/input") / csv_path.name,  # Just filename in workspace/input
+        ]
+        
+        file_found = False
+        actual_path = None
+        for path in possible_paths:
+            if path.exists():
+                file_found = True
+                actual_path = path
+                break
+        
+        if not file_found:
+            print(f"Error: CSV file {input_file} not found in any of these locations:")
+            for path in possible_paths:
+                print(f"   - {path}")
+            print("💡 Try placing the file in workspace/input/ directory")
+            sys.exit(1)
+        else:
+            input_file = str(actual_path)
+            print(f"Found CSV file at: {input_file}")
     
     # Make file paths absolute
     input_path = Path(input_file)

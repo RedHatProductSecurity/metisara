@@ -331,9 +331,32 @@ Configuration:
                 sys.exit(1)
     else:
         print(f"\n📁 Step 1: Skipped auto-move (assuming {csv_input} is already present)")
-        if not Path(csv_input).exists():
-            print(f"❌ {csv_input} not found in current directory")
+        # Check for the file in multiple possible locations
+        csv_path = Path(csv_input)
+        possible_paths = [
+            csv_path,  # Direct path as specified in config
+            Path("workspace/input") / csv_input,  # In workspace/input directory
+            Path("workspace/input") / csv_path.name,  # Just filename in workspace/input
+        ]
+        
+        file_found = False
+        actual_path = None
+        for path in possible_paths:
+            if path.exists():
+                file_found = True
+                actual_path = path
+                break
+        
+        if not file_found:
+            print(f"❌ {csv_input} not found in any of these locations:")
+            for path in possible_paths:
+                print(f"   - {path}")
+            print("💡 Try placing the file in workspace/input/ directory")
             sys.exit(1)
+        else:
+            # Update csv_input to the actual found path for subsequent processing
+            csv_input = str(actual_path)
+            print(f"✅ Found CSV file at: {csv_input}")
     
     # Step 2: Process CSV (generate config or process placeholders)
     if args.generate_config:
