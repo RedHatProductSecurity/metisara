@@ -5,7 +5,7 @@ import subprocess
 import argparse
 from pathlib import Path
 from .config.manager import ConfigManager
-from .utils.file_manager import auto_move_csv_from_downloads
+from .utils.file_manager import auto_move_csv_from_downloads, download_csv_from_google_sheets
 
 # Import version from package
 from . import __version__
@@ -190,6 +190,10 @@ Examples:
   ./metis --generate-config            # Generate configuration only
   ./metis YOUR_API_TOKEN               # Create actual JIRA tickets
   ./metis --skip-auto-move TOKEN       # Use existing CSV file
+  ./metis --google-sheets "URL" TOKEN  # Download from Google Sheets
+
+Google Sheets:
+  ./metis --google-sheets "https://docs.google.com/spreadsheets/d/ABC123/edit" --pretend
 
 Configuration:
   - Edit metisara.conf for JIRA URL, username, and file paths
@@ -219,6 +223,9 @@ Configuration:
     
     parser.add_argument('--clean', action='store_true',
                        help='Clean all project generated files (workspace directory, logs, and zip files)')
+    
+    parser.add_argument('--google-sheets', type=str, metavar='URL',
+                       help='Download CSV from Google Sheets URL instead of local Downloads folder')
     
     parser.add_argument('api_token', nargs='?',
                        help='JIRA API token for creating tickets (optional if using .env file or running in dry-run mode)')
@@ -315,8 +322,15 @@ Configuration:
     if args.dry_run:
         print("   Mode: 🔍 DRY RUN (no JIRA tickets will be created)")
     
-    # Step 1: Auto-move CSV file (unless skipped or already exists)
-    if not args.skip_auto_move:
+    # Step 1: Obtain CSV file (from Downloads, Google Sheets, or existing file)
+    if args.google_sheets:
+        print(f"\n📁 Step 1: Downloading CSV from Google Sheets...")
+        success = download_csv_from_google_sheets(args.google_sheets, force=args.force)
+        if not success:
+            print("❌ Failed to download CSV from Google Sheets.")
+            sys.exit(1)
+        print(f"✅ CSV file downloaded from Google Sheets to: {csv_input}")
+    elif not args.skip_auto_move:
         if Path(csv_input).exists() and not args.force:
             print(f"\n📁 Step 1: {csv_input} already exists in current directory, skipping auto-move")
         else:
@@ -364,6 +378,8 @@ Configuration:
         process_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py'), '--generate-config']
         if args.skip_auto_move:
             process_cmd.append('--skip-auto-move')
+        if args.google_sheets:
+            process_cmd.extend(['--google-sheets', args.google_sheets])
         
         success = run_command(process_cmd, "Generating configuration from CSV")
         if not success:
@@ -379,6 +395,8 @@ Configuration:
         generate_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py'), '--generate-config']
         if args.skip_auto_move:
             generate_cmd.append('--skip-auto-move')
+        if args.google_sheets:
+            generate_cmd.extend(['--google-sheets', args.google_sheets])
         
         success = run_command(generate_cmd, "Generating configuration from CSV")
         if not success:
@@ -391,6 +409,8 @@ Configuration:
         process_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py')]
         if args.skip_auto_move:
             process_cmd.append('--skip-auto-move')
+        if args.google_sheets:
+            process_cmd.extend(['--google-sheets', args.google_sheets])
         
         success = run_command(process_cmd, f"Processing placeholders to create {csv_output}")
         if not success:

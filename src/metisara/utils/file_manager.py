@@ -80,6 +80,46 @@ def auto_move_csv_from_downloads(force=False):
         print(f"❌ Error moving file: {e}")
         return False
 
+
+def download_csv_from_google_sheets(sheets_url: str, force=False):
+    """Download CSV from Google Sheets and save to workspace
+    
+    Args:
+        sheets_url: Google Sheets URL (must be publicly accessible)
+        force: If True, overwrite existing file
+    """
+    try:
+        from .google_sheets_handler import download_csv_from_google_sheets as download_handler
+        
+        config = configparser.ConfigParser()
+        config.read('metisara.conf')
+        
+        csv_filepath = config.get('files', 'csv_file_input', fallback='workspace/input/Metisara Template - Import.csv')
+        dest_file = Path.cwd() / csv_filepath
+        
+        if dest_file.exists() and not force:
+            print(f"⚠️  Destination file already exists: {dest_file}")
+            print("Use --force flag to overwrite existing file")
+            return False
+        elif dest_file.exists() and force:
+            print(f"🔄 Force mode: Overwriting existing file...")
+        
+        print("Google Sheets CSV Download")
+        print("=" * 30)
+        print(f"Source: {sheets_url}")
+        print(f"Destination: {dest_file}")
+        
+        success = download_handler(sheets_url, str(dest_file))
+        return success
+        
+    except ImportError:
+        print("❌ Google Sheets handler not available")
+        return False
+    except Exception as e:
+        print(f"❌ Error downloading from Google Sheets: {e}")
+        return False
+
+
 def main():
     success = auto_move_csv_from_downloads()
     

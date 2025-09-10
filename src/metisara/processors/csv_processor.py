@@ -471,9 +471,37 @@ def main():
     skip_auto_move = '--skip-auto-move' in sys.argv
     generate_config = '--generate-config' in sys.argv
     
+    # Check for Google Sheets URL
+    google_sheets_url = None
+    if '--google-sheets' in sys.argv:
+        try:
+            google_sheets_index = sys.argv.index('--google-sheets')
+            if google_sheets_index + 1 < len(sys.argv):
+                google_sheets_url = sys.argv[google_sheets_index + 1]
+        except (ValueError, IndexError):
+            print("❌ Error: --google-sheets requires a URL argument")
+            sys.exit(1)
+    
     # Check if we should generate config from CSV
     if generate_config:
-        if not skip_auto_move:
+        if google_sheets_url:
+            print("Step 1: Downloading CSV from Google Sheets...")
+            from pathlib import Path
+            script_dir = Path(__file__).parent.parent
+            sys.path.insert(0, str(script_dir))
+            
+            try:
+                from utils.file_manager import download_csv_from_google_sheets
+                success = download_csv_from_google_sheets(google_sheets_url)
+                if not success:
+                    print("❌ Failed to download CSV from Google Sheets")
+                    sys.exit(1)
+            except ImportError as e:
+                print(f"❌ Error importing Google Sheets handler: {e}")
+                sys.exit(1)
+            
+            print("\nStep 2: Extracting configuration from CSV...")
+        elif not skip_auto_move:
             # Check if CSV file already exists before trying to move it
             metisara_config = configparser.ConfigParser()
             metisara_config.read('metisara.conf')
@@ -570,7 +598,24 @@ def main():
         return
     
     # Original functionality - load existing config and process CSV
-    if not skip_auto_move:
+    if google_sheets_url:
+        print("Step 1: Downloading CSV from Google Sheets...")
+        from pathlib import Path
+        script_dir = Path(__file__).parent.parent
+        sys.path.insert(0, str(script_dir))
+        
+        try:
+            from utils.file_manager import download_csv_from_google_sheets
+            success = download_csv_from_google_sheets(google_sheets_url)
+            if not success:
+                print("❌ Failed to download CSV from Google Sheets")
+                sys.exit(1)
+        except ImportError as e:
+            print(f"❌ Error importing Google Sheets handler: {e}")
+            sys.exit(1)
+        
+        print("\nStep 2: Processing CSV file...")
+    elif not skip_auto_move:
         # Check if CSV file already exists before trying to move it
         metisara_config = configparser.ConfigParser()
         metisara_config.read('metisara.conf')

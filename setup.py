@@ -56,6 +56,7 @@ setup(
     install_requires=[
         "jira>=3.0.0",
         "python-dotenv>=0.19.0",
+        "requests>=2.25.0",
     ],
     extras_require={
         "dev": [
