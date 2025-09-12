@@ -82,11 +82,22 @@ start_containers_macos() {
         named_volume_opts="Z"
     fi
     
+    # Check for Google credentials
+    local gcloud_volume_opts=""
+    if [[ -n "$GOOGLE_APPLICATION_CREDENTIALS" && -f "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
+        echo "🔐 Found Google Application Credentials: $GOOGLE_APPLICATION_CREDENTIALS"
+        gcloud_volume_opts="-v $GOOGLE_APPLICATION_CREDENTIALS:/home/testuser/.google/credentials.json:${host_volume_opts} -e GOOGLE_APPLICATION_CREDENTIALS=/home/testuser/.google/credentials.json"
+    elif [[ -d "$HOME/.config/gcloud" ]]; then
+        echo "🔐 Found gcloud config directory: $HOME/.config/gcloud"
+        gcloud_volume_opts="-v $HOME/.config/gcloud:/home/testuser/.config/gcloud:${host_volume_opts}"
+    fi
+    
     # Start Fedora container
     echo "Starting Fedora container..."
     podman run -d --name metisara-fedora \
         -v "$SCRIPT_DIR:/home/testuser/metisara-dev:${host_volume_opts}" \
         -v metisara-workspace-fedora:/home/testuser/metisara/workspace:${named_volume_opts} \
+        $gcloud_volume_opts \
         -e METISARA_ENV=development \
         -e PYTHONPATH=/home/testuser/metisara/src \
         -w /home/testuser/metisara \
@@ -99,6 +110,7 @@ start_containers_macos() {
     podman run -d --name metisara-alpine \
         -v "$SCRIPT_DIR:/home/testuser/metisara-dev:${host_volume_opts}" \
         -v metisara-workspace-alpine:/home/testuser/metisara/workspace:${named_volume_opts} \
+        $gcloud_volume_opts \
         -e METISARA_ENV=development \
         -e PYTHONPATH=/home/testuser/metisara/src \
         -w /home/testuser/metisara \
@@ -112,6 +124,7 @@ start_containers_macos() {
         -v "$SCRIPT_DIR:/home/testuser/metisara-dev:${host_volume_opts}" \
         -v metisara-workspace-test:/home/testuser/metisara/workspace:${named_volume_opts} \
         -v "$SCRIPT_DIR/tests/fixtures:/home/testuser/metisara/test-data:${host_volume_opts}" \
+        $gcloud_volume_opts \
         -e METISARA_ENV=testing \
         -e PYTHONPATH=/home/testuser/metisara/src \
         -e JIRA_API_TOKEN=test-token-for-dry-run \
@@ -121,6 +134,53 @@ start_containers_macos() {
         sleep infinity
     
     echo "All containers started! Use 'exec' command to enter them."
+}
+
+# Install gcloud CLI in containers
+install_gcloud() {
+    local container_name=${1:-metisara-fedora}
+    echo "Installing gcloud CLI in container: $container_name"
+    
+    if [[ "$IS_MACOS" == "true" ]]; then
+        container_full_name="$container_name"
+    else
+        container_full_name="metisara-pod-$container_name"
+    fi
+    
+    # Check if container is running
+    if ! podman ps --format "{{.Names}}" | grep -q "^$container_full_name$"; then
+        echo "Container $container_full_name is not running. Starting containers first..."
+        start_pod
+    fi
+    
+    echo "Installing gcloud CLI in $container_full_name..."
+    podman exec "$container_full_name" /bin/bash -c "
+        # Install gcloud CLI
+        curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts
+        echo 'source ~/google-cloud-sdk/path.bash.inc' >> ~/.bashrc
+        echo 'source ~/google-cloud-sdk/completion.bash.inc' >> ~/.bashrc
+        source ~/.bashrc
+        echo 'gcloud CLI installed successfully!'
+        ~/google-cloud-sdk/bin/gcloud version
+    "
+}
+
+# Authenticate with Google in container
+auth_google() {
+    local container_name=${1:-metisara-fedora}
+    echo "Setting up Google authentication in container: $container_name"
+    
+    if [[ "$IS_MACOS" == "true" ]]; then
+        container_full_name="$container_name"
+    else
+        container_full_name="metisara-pod-$container_name"
+    fi
+    
+    echo "To authenticate with Google:"
+    echo "1. Run: ./podman-scripts.sh exec $container_name"
+    echo "2. In the container, run: ~/google-cloud-sdk/bin/gcloud auth application-default login"
+    echo "3. Follow the authentication prompts"
+    echo "4. Test with: ./metis --google-sheets 'YOUR_SHEET_URL' --pretend"
 }
 
 # Stop pod or containers (platform-specific)
@@ -218,15 +278,19 @@ Commands:
                     Available: metisara-fedora, metisara-alpine, metisara-test
     logs [NAME]     Show logs for container (default: metisara-fedora)
     status          Show pod, container, and volume status
+    install-gcloud [NAME]  Install gcloud CLI in container (default: metisara-fedora)
+    auth-google [NAME]     Show Google authentication instructions
     cleanup         Stop pod and remove all images and volumes
     help            Show this help message
 
 Examples:
     $0 build                    # Build all images
     $0 start                    # Start the pod
+    $0 install-gcloud           # Install gcloud CLI in Fedora container
     $0 exec metisara-fedora     # Enter Fedora container
     $0 exec metisara-alpine     # Enter Alpine container
     $0 exec metisara-test       # Enter test container
+    $0 auth-google              # Show Google auth instructions
     $0 stop                     # Stop the pod
     $0 cleanup                  # Clean everything up
 
@@ -266,6 +330,12 @@ case "${1:-help}" in
         ;;
     status)
         status
+        ;;
+    install-gcloud)
+        install_gcloud "$2"
+        ;;
+    auth-google)
+        auth_google "$2"
         ;;
     cleanup)
         cleanup

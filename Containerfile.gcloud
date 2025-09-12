@@ -1,0 +1,73 @@
+# Containerfile with gcloud CLI for authenticated Google Sheets access
+# Supports Red Hat SSO authentication
+
+ARG BASE_IMAGE=fedora:latest
+FROM ${BASE_IMAGE}
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies and gcloud CLI
+RUN if [ -f /etc/fedora-release ]; then \
+        # Fedora setup with gcloud CLI
+        dnf update -y && \
+        dnf install -y python3 python3-pip git make wget curl which && \
+        # Add Google Cloud SDK repository
+        tee -a /etc/yum.repos.d/google-cloud-sdk.repo << EOM && \
+[google-cloud-cli] \
+name=Google Cloud CLI \
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el8-x86_64 \
+enabled=1 \
+gpgcheck=1 \
+repo_gpgcheck=0 \
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg \
+       https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg \
+EOM \
+        dnf install -y google-cloud-cli && \
+        dnf clean all; \
+    elif [ -f /etc/alpine-release ]; then \
+        # Alpine setup
+        apk update && \
+        apk add --no-cache python3 py3-pip git make wget curl bash; \
+    else \
+        # Debian/Ubuntu fallback
+        apt-get update && \
+        apt-get install -y python3 python3-pip git make wget curl && \
+        apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Create a non-root user for testing
+RUN useradd -m -s /bin/bash testuser || adduser -D testuser
+USER testuser
+WORKDIR /home/testuser
+
+# Copy the project files
+COPY --chown=testuser:testuser . /home/testuser/metisara/
+
+# Set working directory to the project
+WORKDIR /home/testuser/metisara
+
+# Create Python virtual environment
+RUN python3 -m venv venv
+
+# Activate virtual environment and install dependencies
+RUN . venv/bin/activate && \
+    pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Install Metisara in development mode
+RUN . venv/bin/activate && pip install -e .
+
+# Make metis executable
+RUN chmod +x metis
+
+# Create initial setup
+RUN cp examples/metisara.conf.example metisara.conf && \
+    cp .env.example .env
+
+# Set environment variables
+ENV METISARA_CONTAINER=1
+ENV PATH="/home/testuser/metisara/venv/bin:$PATH"
+
+# Default command shows help and gcloud status
+CMD ["/bin/bash", "-c", "source venv/bin/activate && echo '=== Metisara Container with gcloud CLI ===' && echo 'Python version:' && python --version && echo 'Metisara installation:' && ./metis --version && echo 'gcloud CLI version:' && gcloud version --format='value(Google Cloud SDK)' 2>/dev/null || echo 'gcloud not available' && echo 'Available commands:' && ./metis --help && echo 'Configuration files:' && ls -la *.conf *.env* && echo 'Ready for authenticated Google Sheets access!'"]
