@@ -3,9 +3,55 @@
 import requests
 import re
 import configparser
+import webbrowser
+import sys
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
+
+def prompt_for_authentication():
+    """
+    Prompt user for Google Cloud authentication and optionally open browser.
+    
+    Returns:
+        True if user wants to continue, False to abort
+    """
+    print("\n🔐 Google Sheets Authentication Required")
+    print("=" * 50)
+    print("To download from Google Sheets, you need to authenticate with Google Cloud.")
+    print("\nPlease follow these steps:")
+    print("1. Run: gcloud auth application-default login")
+    print("2. Sign in with your Google account that has access to the spreadsheet")
+    print("3. Re-run this command")
+    
+    # Check if we're in a container environment
+    import os
+    is_container = os.environ.get('METISARA_CONTAINER') == '1'
+    
+    if not is_container:
+        try:
+            response = input("\n🌐 Would you like me to open the authentication page in your browser? [Y/n]: ").strip().lower()
+            if response in ('', 'y', 'yes'):
+                auth_url = "https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login"
+                print(f"\n🌐 Opening browser to: {auth_url}")
+                webbrowser.open(auth_url)
+                print("\nAfter authentication, run this command:")
+                print("gcloud auth application-default login")
+        except (EOFError, KeyboardInterrupt):
+            print("\n")
+            return False
+    else:
+        print("\n📦 Container Environment Detected")
+        print("You're running in a container. Authentication steps:")
+        print("1. Exit the container")
+        print("2. On your host machine, run: gcloud auth application-default login")  
+        print("3. Mount your credentials when running the container:")
+        print("   podman run -v ~/.config/gcloud:/home/testuser/.config/gcloud ...")
+    
+    print("\n💡 Alternative: Make sure your Google Sheet is publicly accessible")
+    print("   Share > Anyone with the link > Viewer")
+    
+    return False
 
 def extract_sheet_id(sheets_url: str) -> str:
     """
@@ -130,7 +176,7 @@ def get_authenticated_session() -> requests.Session:
     return session
 
 
-def download_csv_from_google_sheets(sheets_url: str, output_path: str = None, gid: str = "0") -> bool:
+def download_csv_from_google_sheets(sheets_url: str, output_path: str = None, gid: str = "0", force: bool = False) -> bool:
     """
     Download CSV data from a Google Sheets document using Red Hat authentication.
     
@@ -138,6 +184,7 @@ def download_csv_from_google_sheets(sheets_url: str, output_path: str = None, gi
         sheets_url: Google Sheets URL
         output_path: Path where CSV file should be saved (optional)
         gid: Sheet ID within the spreadsheet (default: "0" for first sheet)
+        force: Force overwrite existing file (default: False)
         
     Returns:
         Boolean indicating success/failure
@@ -167,6 +214,11 @@ def download_csv_from_google_sheets(sheets_url: str, output_path: str = None, gi
         if response.status_code == 401:
             print("🔄 Authentication failed, trying public access...")
             response = requests.get(csv_export_url, timeout=30)
+            
+            # If still unauthorized, prompt for authentication
+            if response.status_code == 401:
+                prompt_for_authentication()
+                return False
         
         response.raise_for_status()
         
@@ -180,6 +232,16 @@ def download_csv_from_google_sheets(sheets_url: str, output_path: str = None, gi
             output_path = config.get('files', 'csv_file_input', fallback='workspace/input/Metisara Template - Import.csv')
         
         output_file = Path(output_path)
+        
+        # Check if file exists and handle force flag
+        if output_file.exists() and not force:
+            print(f"⚠️  Destination file already exists: {output_file}")
+            print("File already exists - will be overwritten automatically")
+            return False
+        
+        if force and output_file.exists():
+            print("🔄 Force mode: Overwriting existing file...")
+        
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
         with open(output_file, 'wb') as f:
@@ -195,8 +257,12 @@ def download_csv_from_google_sheets(sheets_url: str, output_path: str = None, gi
         return True
         
     except requests.exceptions.RequestException as e:
-        print(f"❌ Network error downloading from Google Sheets: {e}")
-        print("💡 Ensure you're authenticated with: gcloud auth application-default login")
+        # Check if it's specifically an authentication error
+        if "401" in str(e) or "Unauthorized" in str(e):
+            prompt_for_authentication()
+        else:
+            print(f"❌ Network error downloading from Google Sheets: {e}")
+            print("💡 Ensure you're authenticated with: gcloud auth application-default login")
         return False
     except ValueError as e:
         print(f"❌ URL parsing error: {e}")

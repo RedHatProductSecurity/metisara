@@ -82,16 +82,39 @@ echo "JIRA_API_TOKEN=your_jira_api_token_here" > .env
 # Create actual JIRA tickets in your JIRA
 ./metis
 
-# Force refresh CSV from Downloads folder
-./metis --force --dry-run
+# Test with verbose debug output
+./metis --dry-run --verbose
+
+# Download from Google Sheets (requires gcloud auth)
+./metis --google-sheets "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit?gid=0#gid=0" --dry-run
 ```
+
+### 5. Google Sheets Integration (Optional)
+
+For corporate environments, you can use Google Sheets as your CSV source:
+
+```bash
+# 1. Set up Google Cloud authentication
+gcloud auth application-default login
+
+# 2. Use Google Sheets URL directly (include gid for specific sheet)
+./metis --google-sheets "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit?gid=0#gid=0" --dry-run
+
+# 3. Or configure in metisara.conf for automatic use
+echo -e '\n[google_sheets]\nurl = https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit?gid=0#gid=0' >> metisara.conf
+```
+
+**Important Notes**:
+- Google Sheets must be accessible by your authenticated Google account
+- Include the `gid` parameter in the URL to specify which sheet tab to use (gid=0 is the first tab)
+- You can get the full URL with gid by opening the specific sheet tab in your browser and copying the URL
 
 ## Workflow Overview
 
 Metisara follows a structured 3-phase workflow:
 
 ### Phase 1: CSV Processing
-1. **Auto-move CSV**: Automatically moves CSV templates from Downloads folder
+1. **File Detection**: Automatically detects CSV files from multiple sources (Google Sheets, Downloads folder, or existing workspace files)
 2. **Configuration Generation**: Extracts configuration from CSV template sections
 3. **Placeholder Replacement**: Replaces placeholders with actual values
 
@@ -113,11 +136,11 @@ Metisara follows a structured 3-phase workflow:
 Options:
   --version             Show version information
   --dry-run, --pretend  Simulate ticket creation without creating actual JIRA tickets
-  --skip-auto-move      Skip automatic CSV file moving from Downloads folder
-  --force               Force move CSV file from Downloads even if destination exists
   --generate-config     Generate placeholder configuration from CSV file
   --report-issue        Create a zip file with workspace contents for issue reporting
   --clean               Clean all project generated files
+  --google-sheets URL   Download CSV from Google Sheets URL (requires gcloud authentication)
+  --verbose, --debug    Show detailed debug information including subprocess commands
 
 Arguments:
   API_TOKEN             JIRA API token (optional if using .env file)
@@ -232,8 +255,8 @@ Edit `workspace/config/csv_replacements.json` for custom replacements:
 
 2. **CSV File Not Found**
    ```bash
-   # Solution: Use --skip-auto-move if file is already in place
-   ./metis --skip-auto-move
+   # Solution: Place file in workspace/input/ directory
+   mkdir -p workspace/input && mv "your-file.csv" workspace/input/
    ```
 
 3. **Configuration Errors**

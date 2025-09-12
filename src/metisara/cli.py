@@ -128,9 +128,11 @@ def get_ai_disclaimer():
 # ============================================================================
 """
 
-def run_command(command, description, check_success=True):
+def run_command(command, description, check_success=True, verbose=False):
     """Run a subprocess command with error handling"""
     print(f"\n🔄 {description}...")
+    if verbose:
+        print(f"🐛 DEBUG: Running command: {' '.join(command)}")
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         print(result.stdout)
@@ -186,20 +188,19 @@ def main():
         epilog='''
 Examples:
   ./metis --pretend                    # Dry-run mode (no tickets created)
-  ./metis --force --pretend            # Force refresh CSV from Downloads  
   ./metis --generate-config            # Generate configuration only
   ./metis YOUR_API_TOKEN               # Create actual JIRA tickets
-  ./metis --skip-auto-move TOKEN       # Use existing CSV file
   ./metis --google-sheets "URL" TOKEN  # Download from Google Sheets
+  ./metis --verbose --pretend          # Show debug info (subprocess commands)
 
 Google Sheets:
-  ./metis --google-sheets "https://docs.google.com/spreadsheets/d/ABC123/edit" --pretend
+  ./metis --google-sheets "https://docs.google.com/spreadsheets/d/ABC123/edit?gid=0#gid=0" --pretend
 
 Configuration:
   - Edit metisara.conf for JIRA URL, username, and file paths
-  - CSV templates go in workspace/input/
+  - CSV templates go in workspace/input/ (auto-detected from multiple locations)
   - Processed files saved to workspace/output/
-  - Configuration files stored in workspace/config/
+  - For Google Sheets: Run 'gcloud auth application-default login' first
         ''',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -209,11 +210,7 @@ Configuration:
     parser.add_argument('--dry-run', '--pretend', action='store_true',
                        help='Run in dry-run mode - simulate ticket creation without actually creating JIRA tickets')
     
-    parser.add_argument('--skip-auto-move', action='store_true',
-                       help='Skip automatic CSV file moving from Downloads folder (assumes file is already in workspace)')
     
-    parser.add_argument('--force', action='store_true',
-                       help='Force move CSV file from Downloads even if destination file already exists in workspace')
     
     parser.add_argument('--generate-config', action='store_true',
                        help='Generate placeholder configuration from CSV file instead of processing tickets')
@@ -225,7 +222,10 @@ Configuration:
                        help='Clean all project generated files (workspace directory, logs, and zip files)')
     
     parser.add_argument('--google-sheets', type=str, metavar='URL',
-                       help='Download CSV from Google Sheets URL instead of local Downloads folder')
+                       help='Download CSV from Google Sheets URL (requires gcloud authentication)')
+    
+    parser.add_argument('--verbose', '--debug', action='store_true',
+                       help='Show detailed debug information including subprocess commands')
     
     parser.add_argument('api_token', nargs='?',
                        help='JIRA API token for creating tickets (optional if using .env file or running in dry-run mode)')
@@ -307,8 +307,8 @@ Configuration:
         config_manager = ConfigManager()
         config = config_manager.load_config()
         
-        # Validate configuration (skip JIRA validation in dry-run mode)
-        config_manager.validate_config(config, skip_jira_validation=args.dry_run)
+        # Validate configuration (skip JIRA validation in dry-run mode or generate-config mode)
+        config_manager.validate_config(config, skip_jira_validation=args.dry_run or args.generate_config)
         
         csv_input = config['csv_input']
         csv_output = config['csv_output']
@@ -336,27 +336,13 @@ Configuration:
     # Step 1: Obtain CSV file (from Downloads, Google Sheets, or existing file)
     if args.google_sheets:
         print(f"\n📁 Step 1: Downloading CSV from Google Sheets...")
-        success = download_csv_from_google_sheets(args.google_sheets, force=args.force)
+        success = download_csv_from_google_sheets(args.google_sheets, force=True)
         if not success:
             print("❌ Failed to download CSV from Google Sheets.")
             sys.exit(1)
         print(f"✅ CSV file downloaded from Google Sheets to: {csv_input}")
-    elif not args.skip_auto_move:
-        if Path(csv_input).exists() and not args.force:
-            print(f"\n📁 Step 1: {csv_input} already exists in current directory, skipping auto-move")
-        else:
-            if args.force and Path(csv_input).exists():
-                print(f"\n📁 Step 1: Force moving {csv_input} from Downloads...")
-            else:
-                print(f"\n📁 Step 1: Moving {csv_input} from Downloads...")
-            print(f"\n🔄 Moving {csv_input} from Downloads...")
-            success = auto_move_csv_from_downloads(force=args.force)
-            if not success:
-                print("❌ Failed to move CSV file. Use --skip-auto-move if file is already in place.")
-                sys.exit(1)
     else:
-        print(f"\n📁 Step 1: Skipped auto-move (assuming {csv_input} is already present)")
-        # Check for the file in multiple possible locations
+        # Check for existing file first in multiple possible locations
         csv_path = Path(csv_input)
         possible_paths = [
             csv_path,  # Direct path as specified in config
@@ -372,29 +358,29 @@ Configuration:
                 actual_path = path
                 break
         
-        if not file_found:
-            print(f"❌ {csv_input} not found in any of these locations:")
-            for path in possible_paths:
-                print(f"   - {path}")
-            print("💡 Try placing the file in workspace/input/ directory")
-            sys.exit(1)
-        else:
-            # Update csv_input to the actual found path for subsequent processing
+        if file_found:
+            print(f"\n📁 Step 1: Found existing CSV file at: {actual_path}")
             csv_input = str(actual_path)
-            print(f"✅ Found CSV file at: {csv_input}")
+        else:
+            # Try to move from Downloads
+            print(f"\n📁 Step 1: Moving {csv_input} from Downloads...")
+            print(f"\n🔄 Moving {csv_input} from Downloads...")
+            success = auto_move_csv_from_downloads(force=True)
+            if not success:
+                print("❌ Failed to move CSV file and no existing file found.")
+                print("💡 Try placing the file in workspace/input/ directory")
+                sys.exit(1)
     
     # Step 2: Process CSV (generate config or process placeholders)
     if args.generate_config:
         print(f"\n⚙️  Step 2: Generating configuration from {csv_input}...")
         process_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py'), '--generate-config']
-        if args.skip_auto_move:
-            process_cmd.append('--skip-auto-move')
         if args.google_sheets:
             process_cmd.extend(['--google-sheets', args.google_sheets])
-        if args.force:
+        if args.google_sheets:
             process_cmd.append('--force')
         
-        success = run_command(process_cmd, "Generating configuration from CSV")
+        success = run_command(process_cmd, "Generating configuration from CSV", verbose=args.verbose)
         if not success:
             print("❌ Failed to generate configuration")
             sys.exit(1)
@@ -406,14 +392,12 @@ Configuration:
         # Always generate fresh csv_replacements.json from current CSV template
         print(f"\n⚙️  Step 2a: Generating fresh configuration from {csv_input}...")
         generate_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py'), '--generate-config']
-        if args.skip_auto_move:
-            generate_cmd.append('--skip-auto-move')
         if args.google_sheets:
             generate_cmd.extend(['--google-sheets', args.google_sheets])
-        if args.force:
+        if args.google_sheets:
             generate_cmd.append('--force')
         
-        success = run_command(generate_cmd, "Generating configuration from CSV")
+        success = run_command(generate_cmd, "Generating configuration from CSV", verbose=args.verbose)
         if not success:
             print("❌ Failed to generate configuration")
             sys.exit(1)
@@ -422,14 +406,12 @@ Configuration:
         
         print(f"\n🔄 Step 2b: Processing placeholders in {csv_input}...")
         process_cmd = [sys.executable, str(Path(__file__).parent / 'processors' / 'csv_processor.py')]
-        if args.skip_auto_move:
-            process_cmd.append('--skip-auto-move')
         if args.google_sheets:
             process_cmd.extend(['--google-sheets', args.google_sheets])
-        if args.force:
+        if args.google_sheets:
             process_cmd.append('--force')
         
-        success = run_command(process_cmd, f"Processing placeholders to create {csv_output}")
+        success = run_command(process_cmd, f"Processing placeholders to create {csv_output}", verbose=args.verbose)
         if not success:
             print("❌ Failed to process CSV placeholders")
             sys.exit(1)
@@ -446,7 +428,7 @@ Configuration:
         create_cmd.append(args.api_token)
     
     action = "Simulating JIRA ticket creation" if args.dry_run else "Creating JIRA tickets"
-    success = run_command(create_cmd, action)
+    success = run_command(create_cmd, action, verbose=args.verbose)
     
     if not success:
         print("❌ Failed to create JIRA tickets")

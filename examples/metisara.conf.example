@@ -17,7 +17,9 @@ csv_file_output = workspace/output/output.csv
 # Google Sheets URL for CSV import (optional)
 # If specified, this will be used as the default source for CSV data
 # You can still override this with --google-sheets command line option
-url = https://docs.google.com/spreadsheets/d/<gsheet_id>/edit?gid=<tab_to_export_id>#gid=<tab_to_export_id>
+# IMPORTANT: Include the gid parameter to specify which sheet tab to use (gid=0 is the first tab)
+# Example: https://docs.google.com/spreadsheets/d/ABC123DEF456/edit?gid=1234567890#gid=1234567890
+url = https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit?gid=0#gid=0
 
 [project]
 # Default project key for JIRA tickets

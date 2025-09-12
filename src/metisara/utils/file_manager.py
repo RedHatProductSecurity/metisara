@@ -53,7 +53,7 @@ def auto_move_csv_from_downloads(force=False):
     if dest_file.exists():
         if not force:
             print(f"⚠️  Destination file already exists: {dest_file}")
-            print("Use --force flag to overwrite existing file")
+            print("File already exists - will be overwritten automatically")
             return False
         else:
             print(f"🔄 Force mode: Overwriting existing file...")
@@ -97,19 +97,12 @@ def download_csv_from_google_sheets(sheets_url: str, force=False):
         csv_filepath = config.get('files', 'csv_file_input', fallback='workspace/input/Metisara Template - Import.csv')
         dest_file = Path.cwd() / csv_filepath
         
-        if dest_file.exists() and not force:
-            print(f"⚠️  Destination file already exists: {dest_file}")
-            print("Use --force flag to overwrite existing file")
-            return False
-        elif dest_file.exists() and force:
-            print(f"🔄 Force mode: Overwriting existing file...")
-        
         print("Google Sheets CSV Download")
         print("=" * 30)
         print(f"Source: {sheets_url}")
         print(f"Destination: {dest_file}")
         
-        success = download_handler(sheets_url, str(dest_file))
+        success = download_handler(sheets_url, str(dest_file), force=force)
         return success
         
     except ImportError:
