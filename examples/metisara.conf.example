@@ -10,8 +10,14 @@ username = user@example.com
 
 [files]
 # Input CSV file with processed project tickets
-csv_file_input = Metisara Template - Import.csv
-csv_file_output = project-tickets-processed.csv
+csv_file_input = workspace/input/input.csv
+csv_file_output = workspace/output/output.csv
+
+[google_sheets]
+# Google Sheets URL for CSV import (optional)
+# If specified, this will be used as the default source for CSV data
+# You can still override this with --google-sheets command line option
+url = https://docs.google.com/spreadsheets/d/<gsheet_id>/edit?gid=<tab_to_export_id>#gid=<tab_to_export_id>
 
 [project]
 # Default project key for JIRA tickets

@@ -306,12 +306,21 @@ Configuration:
     try:
         config_manager = ConfigManager()
         config = config_manager.load_config()
+        
+        # Validate configuration (skip JIRA validation in dry-run mode)
+        config_manager.validate_config(config, skip_jira_validation=args.dry_run)
+        
         csv_input = config['csv_input']
         csv_output = config['csv_output']
         jira_url = config['jira_url']
         username = config['username']
+        # Get Google Sheets URL from config if not provided via command line
+        google_sheets_url = config.get('google_sheets_url')
+        if not args.google_sheets and google_sheets_url:
+            args.google_sheets = google_sheets_url
     except Exception as e:
-        print(f"❌ Error loading configuration: {e}")
+        print(f"❌ Configuration error: {e}")
+        print("\n💡 Please update your metisara.conf file with your actual JIRA instance details.")
         sys.exit(1)
     
     print(f"\n📋 Configuration:")
@@ -319,6 +328,8 @@ Configuration:
     print(f"   Output CSV: {csv_output}")
     print(f"   JIRA URL: {jira_url}")
     print(f"   Username: {username}")
+    if args.google_sheets:
+        print(f"   Google Sheets: {args.google_sheets}")
     if args.dry_run:
         print("   Mode: 🔍 DRY RUN (no JIRA tickets will be created)")
     
@@ -380,6 +391,8 @@ Configuration:
             process_cmd.append('--skip-auto-move')
         if args.google_sheets:
             process_cmd.extend(['--google-sheets', args.google_sheets])
+        if args.force:
+            process_cmd.append('--force')
         
         success = run_command(process_cmd, "Generating configuration from CSV")
         if not success:
@@ -397,6 +410,8 @@ Configuration:
             generate_cmd.append('--skip-auto-move')
         if args.google_sheets:
             generate_cmd.extend(['--google-sheets', args.google_sheets])
+        if args.force:
+            generate_cmd.append('--force')
         
         success = run_command(generate_cmd, "Generating configuration from CSV")
         if not success:
@@ -411,6 +426,8 @@ Configuration:
             process_cmd.append('--skip-auto-move')
         if args.google_sheets:
             process_cmd.extend(['--google-sheets', args.google_sheets])
+        if args.force:
+            process_cmd.append('--force')
         
         success = run_command(process_cmd, f"Processing placeholders to create {csv_output}")
         if not success:

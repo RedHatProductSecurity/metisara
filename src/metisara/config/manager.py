@@ -36,14 +36,16 @@ class ConfigManager:
             'csv_input': self.config.get('files', 'csv_file_input', fallback='Metisara Template - Import.csv'),
             'csv_output': self.config.get('files', 'csv_file_output', fallback='project-tickets-processed.csv'),
             'jira_url': self.config.get('jira', 'url', fallback='https://your-jira-instance.com/'),
-            'username': self.config.get('jira', 'username', fallback='user@example.com')
+            'username': self.config.get('jira', 'username', fallback='user@example.com'),
+            'google_sheets_url': self.config.get('google_sheets', 'url', fallback='')
         }
         
-    def validate_config(self, config: Dict[str, Any]) -> bool:
+    def validate_config(self, config: Dict[str, Any], skip_jira_validation: bool = False) -> bool:
         """Validate configuration values.
         
         Args:
             config: Configuration dictionary to validate
+            skip_jira_validation: If True, skip JIRA-specific validation (for dry-run mode)
             
         Returns:
             True if configuration is valid
@@ -56,5 +58,25 @@ class ConfigManager:
         for field in required_fields:
             if field not in config or not config[field]:
                 raise ValueError(f"Required configuration field '{field}' is missing or empty")
+        
+        # Skip JIRA validation for dry-run mode
+        if not skip_jira_validation:
+            # Check for example/placeholder values that need to be updated
+            example_values = {
+                'jira_url': ['https://your-jira-instance.com/', 'https://your-jira-instance.com'],
+                'username': ['user@example.com']
+            }
+            
+            for field, examples in example_values.items():
+                if config[field] in examples:
+                    raise ValueError(f"Please update '{field}' in metisara.conf - it's still set to the example value '{config[field]}'")
+            
+            # Validate JIRA URL format
+            jira_url = config['jira_url']
+            if not (jira_url.startswith('http://') or jira_url.startswith('https://')):
+                raise ValueError(f"JIRA URL must start with http:// or https:// (current: '{jira_url}')")
+            
+            if 'example' in jira_url.lower() or 'your-jira' in jira_url.lower():
+                raise ValueError(f"Please update the JIRA URL in metisara.conf to your actual JIRA instance (current: '{jira_url}')")
                 
         return True

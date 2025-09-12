@@ -470,6 +470,7 @@ def main():
     # Check flags
     skip_auto_move = '--skip-auto-move' in sys.argv
     generate_config = '--generate-config' in sys.argv
+    force_download = '--force' in sys.argv
     
     # Check for Google Sheets URL
     google_sheets_url = None
@@ -492,7 +493,7 @@ def main():
             
             try:
                 from utils.file_manager import download_csv_from_google_sheets
-                success = download_csv_from_google_sheets(google_sheets_url)
+                success = download_csv_from_google_sheets(google_sheets_url, force=force_download)
                 if not success:
                     print("❌ Failed to download CSV from Google Sheets")
                     sys.exit(1)
@@ -606,7 +607,7 @@ def main():
         
         try:
             from utils.file_manager import download_csv_from_google_sheets
-            success = download_csv_from_google_sheets(google_sheets_url)
+            success = download_csv_from_google_sheets(google_sheets_url, force=force_download)
             if not success:
                 print("❌ Failed to download CSV from Google Sheets")
                 sys.exit(1)
