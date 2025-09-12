@@ -1,0 +1,66 @@
+name: Release and Tag
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'src/metisara/__init__.py'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    if: contains(github.event.head_commit.message, 'Bump version to')
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=$(grep -oP "__version__ = ['\"]([^'\"]*)['\"]" src/metisara/__init__.py | grep -oP "[0-9]+\.[0-9]+\.[0-9]+")
+        echo "version=v$VERSION" >> $GITHUB_OUTPUT
+        echo "version_number=$VERSION" >> $GITHUB_OUTPUT
+        
+    - name: Check if tag exists
+      id: tag_check
+      run: |
+        if git rev-parse "refs/tags/${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Generate release notes
+      id: release_notes
+      if: steps.tag_check.outputs.exists == 'false'
+      run: |
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -z "$LAST_TAG" ]; then
+          COMMITS=$(git log --oneline --pretty=format:"- %s" | head -20)
+        else
+          COMMITS=$(git log --oneline --pretty=format:"- %s" $LAST_TAG..HEAD)
+        fi
+        
+        cat > release_notes.md << EOF
+        ## What's Changed
+        
+        $COMMITS
+        
+        **Full Changelog**: https://github.com/${{ github.repository }}/compare/$LAST_TAG...${{ steps.version.outputs.version }}
+        
+        🤖 Generated with [Claude Code](https://claude.ai/code)
+        EOF
+        
+    - name: Create Release
+      if: steps.tag_check.outputs.exists == 'false'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: ${{ steps.version.outputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
