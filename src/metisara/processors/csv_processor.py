@@ -39,7 +39,7 @@ def generate_ra_tickets(config: Dict) -> list:
             '',  # Epic Name
             program_manager,  # Reporter - actual value
             team['email'] if team['email'] else '',  # Assignee - actual email
-            '<parent_link>',  # Parent Link - will be replaced by bulk_create script
+            '',  # Parent Link - Resource allocation stories don't need parent links (they belong to epic)
             project_target_start,  # Target Start - actual value
             project_due_date,  # Due Date - actual value
             'Resource Allocation',  # Component
@@ -81,7 +81,7 @@ def generate_conception_review_tickets(config: Dict) -> list:
             '',  # Epic Name
             program_manager,  # Reporter - actual value
             team['email'] if team['email'] else '',  # Assignee - actual email
-            '<parent_link>',  # Parent Link - will be replaced by bulk_create script
+            '',  # Parent Link - Conception stories don't need parent links (they belong to epic)
             '',  # Target Start
             review_due_date,  # Due Date - actual value
             'Review',  # Component

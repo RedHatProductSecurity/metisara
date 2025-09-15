@@ -11,7 +11,8 @@ class JiraBulkCreator:
     def __init__(self, base_url, username, api_token, dry_run=False):
         self.base_url = base_url.rstrip('/')
         self.dry_run = dry_run
-        
+        self.api_token = api_token  # Store for validation use
+
         if not dry_run:
             # Initialize JIRA client with token authentication
             self.jira = JIRA(
@@ -21,11 +22,12 @@ class JiraBulkCreator:
         else:
             self.jira = None
             print("🔍 DRY RUN MODE - No issues will be created")
-            
+
         self.created_issues = {}  # Track created issues for epic linking
         self.epic_placeholders = {}  # Track epic placeholders to actual keys
         self.parent_project_key = None  # Track the parent project issue
         self.dry_run_counter = 0  # Counter for dry-run fake keys
+        self.user_validation_cache = {}  # Cache user validation results
     
     def convert_date(self, date_str):
         """Convert date from various formats to YYYY-MM-DD format"""
@@ -77,6 +79,39 @@ class JiraBulkCreator:
         else:
             # Direct epic key, use as-is
             return epic_link
+
+    def validate_user(self, username):
+        """Validate if a user exists in JIRA (with caching to avoid duplicate calls)"""
+        # Check cache first
+        if username in self.user_validation_cache:
+            return self.user_validation_cache[username]
+
+        # For dry-run mode, create a temporary JIRA connection for validation
+        if self.dry_run:
+            if not self.api_token:
+                print(f"🔍 DRY RUN - Cannot validate user '{username}' (no API token)")
+                self.user_validation_cache[username] = True
+                return True  # Assume valid if no token
+            try:
+                temp_jira = JIRA(server=self.base_url, token_auth=self.api_token)
+                temp_jira.user(username)
+                print(f"✅ User '{username}' exists in JIRA")
+                self.user_validation_cache[username] = True
+                return True
+            except Exception as e:
+                print(f"⚠️  User '{username}' does not exist in JIRA, would skip assignment")
+                self.user_validation_cache[username] = False
+                return False
+
+        try:
+            # Try to get user info to validate existence
+            self.jira.user(username)
+            self.user_validation_cache[username] = True
+            return True
+        except Exception as e:
+            print(f"⚠️  User '{username}' does not exist in JIRA, skipping assignment")
+            self.user_validation_cache[username] = False
+            return False
     
     
     def create_issue_from_row(self, row, config=None):
@@ -121,13 +156,15 @@ class JiraBulkCreator:
         if description:
             issue_data["fields"]["description"] = description
         
-        # Add assignee if provided
+        # Add assignee if provided and user exists
         if assignee and assignee != '':
-            issue_data["fields"]["assignee"] = {"name": assignee}
-        
-        # Add reporter if provided
+            if self.validate_user(assignee):
+                issue_data["fields"]["assignee"] = {"name": assignee}
+
+        # Add reporter if provided and user exists
         if reporter and reporter != '':
-            issue_data["fields"]["reporter"] = {"name": reporter}
+            if self.validate_user(reporter):
+                issue_data["fields"]["reporter"] = {"name": reporter}
         
         # Add due date if provided
         if due_date:
@@ -355,23 +392,24 @@ def main():
         print("Mode: DRY RUN (no issues will be created)")
     
     # Get API token from .env file, environment variable, or command line
-    # Skip token requirement in dry-run mode
-    api_token = None
-    if not dry_run:
-        api_token = os.getenv('JIRA_API_TOKEN')
-        
-        if not api_token:
-            # Filter out dry-run flags when looking for token
-            args = [arg for arg in sys.argv[1:] if arg not in ['--dry-run', '--pretend']]
-            if args:
-                api_token = args[0]
-            else:
-                print("Please provide API token via:")
-                print("  .env file: Add JIRA_API_TOKEN=your_token to .env file")
-                print("  Environment variable: export JIRA_API_TOKEN=your_token")
-                print("  Command line: python3 ticket_creator.py your_token")
-                print("  Or use --dry-run flag to simulate without token")
-                sys.exit(1)
+    # Get token even in dry-run mode for user validation
+    api_token = os.getenv('JIRA_API_TOKEN')
+
+    if not api_token:
+        # Filter out dry-run flags when looking for token
+        args = [arg for arg in sys.argv[1:] if arg not in ['--dry-run', '--pretend']]
+        if args:
+            api_token = args[0]
+        elif not dry_run:
+            # Only require token for non-dry-run mode
+            print("Please provide API token via:")
+            print("  .env file: Add JIRA_API_TOKEN=your_token to .env file")
+            print("  Environment variable: export JIRA_API_TOKEN=your_token")
+            print("  Command line: python3 ticket_creator.py your_token")
+            print("  Or use --dry-run flag to simulate without token")
+            sys.exit(1)
+        else:
+            print("🔍 DRY RUN - No API token provided, user validation will be skipped")
     
     # Automatically proceed without confirmation
     action = "simulating" if dry_run else "creating issues in"
