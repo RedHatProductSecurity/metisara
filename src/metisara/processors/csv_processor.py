@@ -74,7 +74,7 @@ def generate_conception_review_tickets(config: Dict) -> list:
         ticket_row = [
             'Conception',  # Milestone
             'Story',  # Issue Type
-            f"Team, Review Project Charter - {team['role']} - {team['name']}",  # Summary with actual role and name
+            f"{team['team']}, Review Project Charter - {team['role']} - {team['name']}",  # Summary with actual team, role and name
             f'Please review the [Project Charter|{project_charter}] and provide your sign-off by resolving this ticket. If you have any questions, concerns, or suggestions, please add inline comments to the charter document.',  # Description with actual charter link
             'Normal',  # Priority
             '<conception_epic>',  # Epic Link - will be replaced by bulk_create script
